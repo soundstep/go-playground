@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"time"
 	"math/rand"
+	"time"
 )
 
 func main() {
@@ -12,6 +12,6 @@ func main() {
 }
 
 func random(min, max int) int {
-    rand.Seed(time.Now().Unix())
-    return rand.Intn(max - min) + min
+	rand.Seed(time.Now().Unix())
+	return rand.Intn(max-min) + min
 }
