@@ -41,8 +41,7 @@ func getTemplate() string {
 func createJobs(tokenReplacements []job, template string) {
 	fmt.Println("--- create jobs")
 	for i, value := range tokenReplacements {
-		fmt.Println(i, value)
-		go createFile(i, tokenReplacements[i], template, len(tokenReplacements))
+		go createFile(i, value, template, len(tokenReplacements))
 	}
 }
 
