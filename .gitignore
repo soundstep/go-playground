@@ -31,3 +31,5 @@ __MACOSX
 .DS_Store
 
 samp.txt
+
+generate-jobs/output/*

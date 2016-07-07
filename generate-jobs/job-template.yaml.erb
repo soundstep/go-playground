@@ -65,6 +65,9 @@
             name: HUB_HIGH_PORT
             default: "44030"
             description: Amount of retries given on docker-compose up
+        - string:
+            name: RERUN_FILE_PATH
+            default: "tmp/rerun.log"
       wrappers:
         - ansicolor
         - timestamps
@@ -177,8 +180,14 @@
         - inject:
             properties-file: env.properties
         - shell: |
-            echo "{{SHELL_COMMAND}}"
-            # bundle exec cucumber REMOTE_HOST=127.0.0.1 REMOTE_PORT=$HUB_PORT CONFIG=edna EDNA_HOST=dockerhost EDNA_PORT=$STUBBY_PORT FNORD=http://127.0.0.1:$STUBBY_PORT STUBBY=http://127.0.0.1:$STUBBY_PORT -p grid_fnord_stub -r features features/acceptance/non_menu_items/guidance
+            bundle exec cucumber REMOTE_HOST=127.0.0.1 REMOTE_PORT=$HUB_PORT CONFIG=edna EDNA_HOST=dockerhost EDNA_PORT=$STUBBY_PORT FNORD=http://127.0.0.1:$STUBBY_PORT STUBBY=http://127.0.0.1:$STUBBY_PORT -p grid_fnord_stub -r features {{SHELL_TOKEN_FEATURE}}
+            if test -s ${RERUN_FILE_PATH}; then
+              echo "Following test(s) failed..."
+              cat ${RERUN_FILE_PATH}
+              echo "re-running failing test(s)..."
+              bundle exec cucumber -p grid_fnord_stub `cat ${RERUN_FILE_PATH} | xargs`
+              rm -rf ${RERUN_FILE_PATH}
+            fi
       publishers:
         - junit:
             results: tmp/test-reports/*.xml
