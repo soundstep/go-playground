@@ -13,13 +13,13 @@ import (
 var countFile = 0
 
 func main() {
-	tokenReplacements := []job{
+	jobList := []job{
 		job{"fist-job", "First token"},
 		job{"second-job", "Second token"},
 	}
 
 	template := getTemplate()
-	createJobs(tokenReplacements, template)
+	createJobs(jobList, template)
 
 	time.Sleep(time.Millisecond * 10000)
 }
@@ -38,10 +38,10 @@ func getTemplate() string {
 	return string(stream)
 }
 
-func createJobs(tokenReplacements []job, template string) {
+func createJobs(jobList []job, template string) {
 	fmt.Println("--- create jobs")
-	for i, value := range tokenReplacements {
-		go createFile(i, value, template, len(tokenReplacements))
+	for i, value := range jobList {
+		go createFile(i, value, template, len(jobList))
 	}
 }
 

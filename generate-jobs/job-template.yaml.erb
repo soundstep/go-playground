@@ -178,7 +178,7 @@
             properties-file: env.properties
         - shell: |
             echo "{{SHELL_COMMAND}}"
-            bundle exec cucumber REMOTE_HOST=127.0.0.1 REMOTE_PORT=$HUB_PORT CONFIG=edna EDNA_HOST=dockerhost EDNA_PORT=$STUBBY_PORT FNORD=http://127.0.0.1:$STUBBY_PORT STUBBY=http://127.0.0.1:$STUBBY_PORT -p grid_fnord_stub -r features features/acceptance/non_menu_items/guidance
+            # bundle exec cucumber REMOTE_HOST=127.0.0.1 REMOTE_PORT=$HUB_PORT CONFIG=edna EDNA_HOST=dockerhost EDNA_PORT=$STUBBY_PORT FNORD=http://127.0.0.1:$STUBBY_PORT STUBBY=http://127.0.0.1:$STUBBY_PORT -p grid_fnord_stub -r features features/acceptance/non_menu_items/guidance
       publishers:
         - junit:
             results: tmp/test-reports/*.xml
