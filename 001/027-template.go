@@ -27,9 +27,9 @@ func main() {
 	fmt.Println("----- template sets")
 
 	fmt.Println("Load a set of templates with {{define}} clauses and execute:")
-	s1, _ := template.ParseFiles("../assets/027-partials/t1.tmpl", "../assets/027-partials/t2.tmpl") //create a set of templates from many files.
-	//Note that t1.tmpl is the file with contents "{{define "t_ab"}}a b{{template "t_cd"}}e f {{end}}"
-	//Note that t2.tmpl is the file with contents "{{define "t_cd"}} c d {{end}}"
+	s1, _ := template.ParseFiles("assets/027-partials/t1.tmpl", "assets/027-partials/t2.tmpl") //create a set of templates from many files.
+	// Note that t1.tmpl is the file with contents "{{define "t_ab"}}a b{{template "t_cd"}}e f {{end}}"
+	// Note that t2.tmpl is the file with contents "{{define "t_cd"}} c d {{end}}"
 
 	s1.ExecuteTemplate(os.Stdout, "t_cd", nil) //just printing of c d
 	fmt.Println()
