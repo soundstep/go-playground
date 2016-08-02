@@ -8,6 +8,7 @@ lib-cov
 *.pid
 *.gz
 *.zip
+*.mp4
 
 pids
 logs
