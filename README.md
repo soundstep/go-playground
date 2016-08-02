@@ -10,6 +10,7 @@
 
 #### Videos
 
+- https://www.youtube.com/watch?v=CF9S4QZuV30 (Go Programming)
 - https://www.youtube.com/watch?v=Vlie-srOU8c (Build Web Apps with Go Language (golang))
 
 #### Additional resources

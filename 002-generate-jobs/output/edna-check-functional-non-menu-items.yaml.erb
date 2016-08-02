@@ -1,0 +1,215 @@
+<% @job_name = @job_env.nil? ? @title : "#{@job_env}-#{@title}" -%>
+  - job:
+      name: <%= @job_name %>
+      project-type: freestyle
+<% if @location =~ /^aws/ -%>
+      node: 10ft-qa1
+<% elsif @location =~ /^local/ -%>
+      node: local-vagrant
+<% end -%>
+      parameters:
+        - string:
+            name: PACKAGE_VERSION
+        - string:
+            name: BUILD_NUMBER
+        - string:
+            name: CONFIG
+            default: edna
+        - string:
+            name: STUBBY_LOW_PORT
+            default: "11000"
+        - string:
+            name: STUBBY_HIGH_PORT
+            default: "11030"
+        - string:
+            name: HEADLESS
+            default: 'true'
+        - string:
+            name: FEATURE_FILE
+            default: 'features/acceptance'
+        - string:
+            name: CAPTURE_JS_ERRORS
+            default: 'true'
+        - string:
+            name: ARTIFACTORY_ENDPOINT
+            default: "http://itvrepos.artifactoryonline.com/itvrepos"
+        - string:
+            name: ARTIFACTORY_USERNAME
+            default: 10ft-test-runner
+        - string:
+            name: ARTIFACTORY_PASSWORD
+            default: p4ssw0rd
+        - string:
+            name: EDNA_PLATFORM
+            default: browser
+        - string:
+            name: RERUN_FILE_PATH
+            default: 'tmp/rerun.log'
+        - string:
+            name: CHROME_NODES
+            default: "1"
+            description: Number of Selenium nodes running Chrome
+        - string:
+            name: COMPOSE_RETRY
+            default: "3"
+            description: Amount of retries given on docker-compose up
+        - string:
+            name: DOCKER_SLEEP
+            default: "10"
+            description: Amount of time to sleep upon boot
+        - string:
+            name: HUB_LOW_PORT
+            default: "44000"
+            description: Amount of retries given on docker-compose up
+        - string:
+            name: HUB_HIGH_PORT
+            default: "44030"
+            description: Amount of retries given on docker-compose up
+        - string:
+            name: RERUN_FILE_PATH
+            default: "tmp/rerun.log"
+      wrappers:
+        - ansicolor
+        - timestamps
+        - build-user-vars
+        #- workspace-cleanup
+        - rvm-env:
+            implementation: 2.1.9
+      scm:
+        - git:
+            wipe-workspace: False
+            url: 'git@github.com:cam-ITV/edna-acceptance.git'
+            git-config-name: 'Edna acceptance'
+            git-config-email: 'devops-group@itv.com'
+            credentials-id: <%= @defaults['credentials_id'] %>
+            branches:
+              - '*/ci-pipeline'
+      builders:
+        - inject:
+            properties-content: PATH="$PATH:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/var/lib/jenkins/bin"
+        - shell: |
+            #!/bin/bash
+            ruby -v
+            echo "Killing puma server (if running): $(pgrep -af $JOB_NAME)"
+            pkill -f $JOB_NAME || true
+            gem install bundler
+            rm -rf tmp
+            mkdir -p tmp
+            bundle install
+            bundle exec stubby kill 2>/dev/null
+            bundle exec stubby install_media
+            bundle exec stubby --app-name=edna --app-version=$PACKAGE_VERSION --app-build=$BUILD_NUMBER --app-location=public install_app
+        - shell: |
+            #!/bin/bash
+            bundle exec rake public/analytics.js
+        - shell: |
+            #!/bin/bash
+            count=$STUBBY_LOW_PORT
+            set +e
+            (echo >/dev/tcp/localhost/$count) &>/dev/null
+            while [[ $count -le $STUBBY_HIGH_PORT && $? == 0 ]]
+            do
+              echo "$count"
+              ((count++))
+              (echo >/dev/tcp/localhost/$count) &>/dev/null
+            done
+            set -e
+            export STUBBY_PORT=$count
+            echo "STUBBY_PORT is $STUBBY_PORT"
+            export JENKINS_IP=$(hostname -i)
+            echo "STUBBY_PORT=$(echo $STUBBY_PORT)" > env.properties
+            echo "JENKINS_IP=$(echo $JENKINS_IP)" >> env.properties
+            bundle exec rake config:jenkins:platform[$EDNA_PLATFORM]
+            bundle exec stubby -S http://$JENKINS_IP:$STUBBY_PORT -Q $STUBBY_PORT start
+            echo "Stubby is now running at http://$JENKINS_IP:$STUBBY_PORT"
+        - inject:
+            properties-file: env.properties
+        - shell: |
+            #!/bin/bash
+            # remove old containers - use a dummy value for HUB_PORT to remove successfully
+            HUB_PORT=0 docker-compose stop && HUB_PORT=0 docker-compose rm -f --all
+            # get bridge network name
+            BRIDGE_NETWORK="${JOB_NAME//-}_selenium"
+            # if docker-compose network exists, get the bridge IP of the host, else create it
+            if docker network ls | grep -q $BRIDGE_NETWORK
+              then
+              export BRIDGE_HOST=$( docker network inspect -f '{{json .IPAM.Config}}' $BRIDGE_NETWORK | jq -r '.[0]["Gateway"]' | sed 's/.\{3\}$//' )
+            else
+              docker network create --driver bridge $BRIDGE_NETWORK
+              export BRIDGE_HOST=$( docker network inspect -f '{{json .IPAM.Config}}' $BRIDGE_NETWORK | jq -r '.[0]["Gateway"]' | sed 's/.\{3\}$//' )
+            fi
+            # Create port to pass selenium hub to host machine
+            count=$HUB_LOW_PORT
+            set +e
+            (echo >/dev/tcp/localhost/$count) &>/dev/null
+            while [[ $count -le $HUB_HIGH_PORT && $? == 0 ]]
+            do
+              echo "$count"
+              ((count++))
+              (echo >/dev/tcp/localhost/$count) &>/dev/null
+            done
+            set -e
+            export HUB_PORT=$count
+            echo "HUB_PORT is $HUB_PORT"
+            # export HUB_PORT to job properties
+            echo "HUB_PORT=$(echo $HUB_PORT)" >> env.properties
+            # start, scale and wait
+            docker-compose up --force-recreate -d && docker-compose scale chrome=$CHROME_NODES && sleep $DOCKER_SLEEP
+            ### CAN'T DO THIS TEST DUE TO https://github.com/docker/compose/issues/1876
+            ## check that containers have booted correctly, if not retry $COMPOSE_RETRY times
+            #docker-compose ps -q | xargs docker inspect -f '{{ .State.ExitCode }}' | grep -v 0
+            #compose_status=$?
+            #count=0
+            #while [[ $count -lt $COMPOSE_RETRY && $compose_status != 0 ]]
+            #do
+            #  docker-compose ps
+            #  echo "Error bringing up docker-compose, retry $(($count+1))"
+            #  docker-compose up --force-recreate -d && sleep $DOCKER_SLEEP
+            #  docker-compose ps -q | xargs docker inspect -f '{{ .State.ExitCode }}' | grep -v 0
+            #  compose_status=$?
+            #  ((count++))
+            #done
+            docker-compose ps
+            #if [ $count -eq $COMPOSE_RETRY ]
+            #  then
+            #  exit 1
+            #fi
+            # check if selenium hub is running
+            echo "Is Selenium grid http://$(hostname -i):$HUB_PORT running? $(curl -s http://0.0.0.0:$HUB_PORT/grid/api/hub | jq '.success')"
+            curl -s http://0.0.0.0:$HUB_PORT/grid/api/hub | jq '.success' | grep -q "true"
+        - inject:
+            properties-file: env.properties
+        - shell: |
+            bundle exec cucumber REMOTE_HOST=127.0.0.1 REMOTE_PORT=$HUB_PORT CONFIG=edna EDNA_HOST=dockerhost EDNA_PORT=$STUBBY_PORT FNORD=http://127.0.0.1:$STUBBY_PORT STUBBY=http://127.0.0.1:$STUBBY_PORT -p grid_fnord_stub -r features features/functional/non_menu_items
+            if test -s ${RERUN_FILE_PATH}; then
+              echo "Following test(s) failed..."
+              cat ${RERUN_FILE_PATH}
+              echo "re-running failing test(s)..."
+              bundle exec cucumber -p grid_fnord_stub `cat ${RERUN_FILE_PATH} | xargs`
+              rm -rf ${RERUN_FILE_PATH}
+            fi
+      publishers:
+        - junit:
+            results: tmp/test-reports/*.xml
+            health-scale-factor: 1.0
+        - archive:
+            artifacts: 'tmp/*.png'
+            allow-empty: 'true'
+        - postbuildscript:
+            script-only-if-succeeded: False
+            script-only-if-failed: False
+            mark-unstable-if-failed: True
+            builders:
+              - shell: |
+                  #!/bin/bash
+                  echo "Killing puma server (if running): $(pgrep -af $JOB_NAME)"
+                  pkill -f $JOB_NAME || true
+        - postbuildscript:
+            script-only-if-succeeded: True
+            script-only-if-failed: False
+            mark-unstable-if-failed: True
+            builders:
+              - shell: |
+                  #!/bin/bash
+                  # remove old containers - use a dummy value for HUB_PORT to remove successfully
+                  HUB_PORT=0 docker-compose stop && HUB_PORT=0 docker-compose rm -f --all
