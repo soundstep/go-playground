@@ -19,9 +19,11 @@ ServeHTTP(http.ResponseWriter, *http.Request)
 package main
 
 import (
+	"bufio"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -34,6 +36,7 @@ func (p *MyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println("PATH:", path)
 
 	data, err := ioutil.ReadFile(string(path))
+	f, err := os.Open(path)
 
 	if err == nil {
 
@@ -43,6 +46,8 @@ func (p *MyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		bufferedReader := bufio.NewReader(f)
 
 		var contentType string
 		if strings.HasSuffix(path, ".css") {
@@ -62,7 +67,13 @@ func (p *MyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Add("Content-Type", contentType)
-		w.Write(data)
+
+		if contentType == "video/mp4" {
+			bufferedReader.WriteTo(w)
+		} else {
+			w.Write(data)
+		}
+
 	} else {
 		log.Println("ERROR:", err)
 		w.WriteHeader(404)
