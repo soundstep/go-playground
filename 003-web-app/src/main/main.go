@@ -20,24 +20,33 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 )
 
-type person struct {
-	fName string
+//MyHandler
+type MyHandler struct {
 }
 
-func (p *person) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("First Name: " + p.fName))
+func (p *MyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("path:", r.URL.Path)
+	path := r.URL.Path[1:]
+	// path := "templates" + r.URL.Path
+	data, err := ioutil.ReadFile(string(path))
+	if err == nil {
+		w.Write(data)
+	} else {
+		fmt.Println(err)
+		w.WriteHeader(404)
+		w.Write([]byte("404 MyFriend - " + http.StatusText(404)))
+	}
 }
 
 func main() {
-	// mymux := http.NewServeMux()
-	personOne := &person{fName: "Jim"}
-	// mymux.HandleFunc("/", someFunc)
+	http.Handle("/", new(MyHandler))
 
 	fmt.Println("Server listening: http://localhost:8080")
-	http.ListenAndServe(":8080", personOne)
+	http.ListenAndServe(":8080", nil)
 }
 
 /*
