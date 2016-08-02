@@ -19,24 +19,50 @@ ServeHTTP(http.ResponseWriter, *http.Request)
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"strings"
 )
 
-//MyHandler
+// MyHandler handler
 type MyHandler struct {
 }
 
 func (p *MyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("path:", r.URL.Path)
 	path := r.URL.Path[1:]
-	// path := "templates" + r.URL.Path
+	log.Println("PATH:", path)
+
 	data, err := ioutil.ReadFile(string(path))
+
 	if err == nil {
+
+		if origin := r.Header.Get("Origin"); origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		var contentType string
+		log.Println(strings.HasSuffix(path, ".css"))
+		if strings.HasSuffix(path, ".css") {
+			contentType = "text/css"
+		} else if strings.HasSuffix(path, ".html") {
+			contentType = "text/html"
+		} else if strings.HasSuffix(path, ".js") {
+			contentType = "application/javascript"
+		} else if strings.HasSuffix(path, ".png") {
+			contentType = "image/png"
+		} else if strings.HasSuffix(path, ".svg") {
+			contentType = "image/svg+xml"
+		} else {
+			contentType = "text/plain"
+		}
+		w.Header().Add("Content-Type", contentType)
 		w.Write(data)
 	} else {
-		fmt.Println(err)
+		log.Println("ERROR:", err)
 		w.WriteHeader(404)
 		w.Write([]byte("404 MyFriend - " + http.StatusText(404)))
 	}
@@ -45,7 +71,7 @@ func (p *MyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func main() {
 	http.Handle("/", new(MyHandler))
 
-	fmt.Println("Server listening: http://localhost:8080")
+	log.Println("Server listening: http://localhost:8080")
 	http.ListenAndServe(":8080", nil)
 }
 
