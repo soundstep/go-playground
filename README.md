@@ -12,6 +12,7 @@
 
 - https://www.youtube.com/watch?v=CF9S4QZuV30 (Go Programming)
 - https://www.youtube.com/watch?v=Vlie-srOU8c (Build Web Apps with Go Language (golang))
+- https://www.devcasts.io/tag/go/
 
 #### Additional resources
 
@@ -30,3 +31,12 @@
 - Martini : http://martini.codegangsta.io/
 - Traffic : https://github.com/pilu/traffic
 - Gooo : https://github.com/aaronlifton/Gooo
+
+#### Useful tools
+
+- Execute command while editing
+
+```
+go get github.com/cespare/reflex
+reflex -r '\.go$' go run main.go
+```
